@@ -1,0 +1,4 @@
+# terminusdb-client uses nightly features (specialization, auto_traits, ...),
+# matching the ParapluOU/terminusdb-rs workspace which also floats nightly.
+[toolchain]
+channel = "nightly"

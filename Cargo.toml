@@ -1,0 +1,53 @@
+# terminusdb-p2p-rooms — demo workspace
+#
+# A trustless network of TerminusDB nodes that replicate hypercore/autobase
+# "rooms" over iroh 1.x, materialise finalized room state into a TerminusDB
+# database per room (branch per room branch), and act as WebRTC signalling
+# servers so browser clients can also exchange their edits peer-to-peer.
+#
+# Reference substrates (git dependencies):
+#   - ParapluOU/hypercore-rs  → roomnet / autobase / identity / codec
+#   - ParapluOU/terminusdb-rs → terminusdb-client / terminusdb-bin (embedded server)
+
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/ParapluOU/terminusdb-p2p-rooms"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# L1 substrate: rooms, causal log, identity (ParapluOU/hypercore-rs)
+roomnet = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
+autobase = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
+identity = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
+codec = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
+
+# TerminusDB (ParapluOU/terminusdb-rs)
+terminusdb-client = { git = "https://github.com/ParapluOU/terminusdb-rs", rev = "4fefb0434f65baa847af5af9fc00175b3e4d827b" }
+terminusdb-bin = { git = "https://github.com/ParapluOU/terminusdb-rs", rev = "4fefb0434f65baa847af5af9fc00175b3e4d827b" }
+
+# Networking
+iroh = "1"
+iroh-gossip = "0.101"
+
+# Runtime / web
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+futures-util = "0.3"
+
+# Serde & misc
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+blake3 = "1"
+rand = "0.8"

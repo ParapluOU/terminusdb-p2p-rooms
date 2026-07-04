@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerminusDB p2p rooms</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header>
+  <h1>TerminusDB p2p rooms</h1>
+  <span class="spacer"></span>
+  <label class="small">host
+    <select id="host-select"></select>
+  </label>
+</header>
+
+<main>
+  <div class="create-row">
+    <input type="text" id="new-title" placeholder="room title">
+    <select id="new-app">
+      <option value="chat">chat</option>
+      <option value="todo">todo list</option>
+      <option value="fs">filesystem</option>
+    </select>
+    <button id="create">create room</button>
+    <span class="small">rooms replicate to every node in the network</span>
+  </div>
+
+  <div id="rooms" class="small">loading rooms…</div>
+</main>
+
+<footer>
+  <span id="node-info"></span>
+  <span class="spacer"></span>
+  <span id="tdb-info"></span>
+</footer>
+
+<script type="module">
+import { api, currentHost } from './js/client.js';
+import { mountHostSelect, esc } from './js/ui.js';
+
+const host = currentHost();
+mountHostSelect(document.querySelector('#host-select'));
+
+async function loadInfo() {
+  try {
+    const info = await api(host, '/api/info');
+    document.querySelector('#node-info').textContent =
+      `node "${info.name}" · roomnet ${info.roomnet_id.slice(0, 8)}… · gossip ${info.gossip_id.slice(0, 8)}…`;
+    document.querySelector('#tdb-info').textContent =
+      info.tdb.connected ? `TerminusDB ✓ ${info.tdb.endpoint}` : `TerminusDB not connected (${info.tdb.endpoint})`;
+  } catch (e) {
+    document.querySelector('#node-info').textContent = `cannot reach ${host}: ${e.message}`;
+  }
+}
+
+const PAGE = { chat: 'chat.html', todo: 'todo.html', fs: 'fs.html' };
+
+async function loadRooms() {
+  const el = document.querySelector('#rooms');
+  try {
+    const { rooms } = await api(host, '/api/rooms');
+    if (!rooms.length) {
+      el.textContent = 'no rooms yet — create one above, or wait for presence gossip to replicate some.';
+      return;
+    }
+    el.innerHTML = '';
+    el.className = '';
+    for (const r of rooms) {
+      const app = PAGE[r.app] ? r.app : 'chat';
+      const a = document.createElement('a');
+      a.className = 'room-card';
+      a.href = `${PAGE[app]}?host=${encodeURIComponent(host)}&room=${r.id}`;
+      a.innerHTML = `
+        <span class="app-tag">${esc(app)}</span>
+        <span>${esc(r.title || r.id.slice(0, 12) + '…')}</span>
+        <span class="meta">${r.branches.length} branch${r.branches.length === 1 ? '' : 'es'} ·
+          ${r.ops} ops · ${esc(r.origin)}</span>`;
+      el.appendChild(a);
+    }
+  } catch (e) {
+    el.textContent = 'failed to load rooms: ' + e.message;
+  }
+}
+
+document.querySelector('#create').onclick = async () => {
+  const title = document.querySelector('#new-title').value.trim();
+  const app = document.querySelector('#new-app').value;
+  const { id } = await api(host, '/api/rooms', {
+    method: 'POST',
+    body: JSON.stringify({ title, app }),
+  });
+  location.href = `${PAGE[app]}?host=${encodeURIComponent(host)}&room=${id}`;
+};
+
+loadInfo();
+loadRooms();
+setInterval(loadRooms, 4000);
+</script>
+</body>
+</html>

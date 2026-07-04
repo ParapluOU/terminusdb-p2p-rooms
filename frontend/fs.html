@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>filesystem · p2p rooms</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header>
+  <h1 id="room-label">filesystem</h1>
+  <span class="spacer"></span>
+  <label class="small">branch <select id="branch-select"></select></label>
+  <label class="small">host <select id="host-select"></select></label>
+</header>
+
+<main>
+  <div class="fs-toolbar">
+    <button id="new-file" class="secondary">new file</button>
+    <button id="new-dir" class="secondary">new folder</button>
+    <button id="move" class="secondary">move/rename</button>
+    <button id="remove" class="danger">delete</button>
+    <span class="path" id="current-path">/</span>
+  </div>
+  <div class="fs-layout">
+    <div class="fs-tree" id="tree"></div>
+    <div class="fs-editor">
+      <textarea id="editor" placeholder="select a file, or create one" disabled></textarea>
+      <div class="fs-toolbar">
+        <button id="save">save</button>
+        <span class="small" id="file-meta"></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span id="conn-status">connecting…</span>
+  <span id="rtc-peers">0 webrtc peers</span>
+  <span id="finality"></span>
+  <span class="spacer"></span>
+  <span id="tdb-badge" class="badge"></span>
+</footer>
+
+<script type="module">
+import { RoomClient, currentHost, currentRoom, currentBranch, shortKey } from './js/client.js';
+import { mountHeader, esc } from './js/ui.js';
+
+const client = new RoomClient(currentHost(), currentRoom());
+mountHeader(client, 'filesystem');
+
+let selected = null;
+
+function branchState() {
+  const view = client.view();
+  return view ? view.branches[currentBranch()] : null;
+}
+
+function render(state) {
+  if (!state) return;
+  const branch = state.branches[currentBranch()];
+  if (!branch) return;
+  const tree = document.querySelector('#tree');
+  tree.innerHTML = '';
+  const paths = Object.keys(branch.files).sort();
+  if (!paths.length) tree.innerHTML = '<span class="small">empty — create a file</span>';
+  for (const path of paths) {
+    const node = branch.files[path];
+    const depth = path.split('/').length - 2;
+    const div = document.createElement('div');
+    div.className = 'node ' + (node.type === 'dir' ? 'dir' : 'file') + (path === selected ? ' selected' : '');
+    div.style.paddingLeft = 0.3 + depth * 0.9 + 'rem';
+    div.textContent = (node.type === 'dir' ? '📁 ' : '📄 ') + path.split('/').pop();
+    div.title = path;
+    div.onclick = () => select(path);
+    tree.appendChild(div);
+  }
+  // Refresh the editor if the selected file changed remotely and we have no
+  // local edits in flight.
+  if (selected && branch.files[selected] && branch.files[selected].type === 'file') {
+    const editor = document.querySelector('#editor');
+    if (editor.dataset.path !== selected || editor.dataset.clean === '1') {
+      editor.value = branch.files[selected].content;
+      editor.dataset.path = selected;
+      editor.dataset.clean = '1';
+    }
+    const meta = branch.files[selected];
+    document.querySelector('#file-meta').textContent =
+      `last edit by ${meta.pending ? 'you' : (state.nicks[meta.author] || shortKey(meta.author))} @ op ${meta.modified_at_op}`;
+  }
+}
+
+function select(path) {
+  selected = path;
+  document.querySelector('#current-path').textContent = path;
+  const branch = branchState();
+  const node = branch && branch.files[path];
+  const editor = document.querySelector('#editor');
+  if (node && node.type === 'file') {
+    editor.disabled = false;
+    editor.value = node.content;
+    editor.dataset.path = path;
+    editor.dataset.clean = '1';
+  } else {
+    editor.disabled = true;
+    editor.value = '';
+    document.querySelector('#file-meta').textContent = '';
+  }
+  render(client.view());
+}
+
+document.querySelector('#editor').addEventListener('input', (e) => {
+  e.target.dataset.clean = '0';
+});
+
+document.querySelector('#save').onclick = () => {
+  const editor = document.querySelector('#editor');
+  if (!selected || editor.disabled) return;
+  client.sendOp(currentBranch(), { kind: 'fs.write', path: selected, content: editor.value });
+  editor.dataset.clean = '1';
+};
+
+document.querySelector('#new-file').onclick = () => {
+  const path = prompt('New file path:', selected ? selected.replace(/[^/]*$/, '') + 'new.txt' : '/new.txt');
+  if (!path) return;
+  client.sendOp(currentBranch(), { kind: 'fs.write', path, content: '' });
+  select(path.startsWith('/') ? path : '/' + path);
+};
+
+document.querySelector('#new-dir').onclick = () => {
+  const path = prompt('New folder path:', '/folder');
+  if (!path) return;
+  client.sendOp(currentBranch(), { kind: 'fs.mkdir', path });
+};
+
+document.querySelector('#move').onclick = () => {
+  if (!selected) return alert('select a file or folder first');
+  const to = prompt(`Move ${selected} to:`, selected);
+  if (!to || to === selected) return;
+  client.sendOp(currentBranch(), { kind: 'fs.move', from: selected, to });
+  selected = to.startsWith('/') ? to : '/' + to;
+};
+
+document.querySelector('#remove').onclick = () => {
+  if (!selected) return alert('select a file or folder first');
+  if (!confirm(`Delete ${selected} (recursively)?`)) return;
+  client.sendOp(currentBranch(), { kind: 'fs.remove', path: selected });
+  selected = null;
+  document.querySelector('#editor').disabled = true;
+  document.querySelector('#editor').value = '';
+};
+
+client.addEventListener('state', (e) => render(e.detail));
+client.connect();
+</script>
+</body>
+</html>

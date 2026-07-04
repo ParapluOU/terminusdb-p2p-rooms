@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>todo · p2p rooms</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header>
+  <h1 id="room-label">todo</h1>
+  <span class="spacer"></span>
+  <label class="small">branch <select id="branch-select"></select></label>
+  <label class="small">host <select id="host-select"></select></label>
+</header>
+
+<main>
+  <div class="chat-input">
+    <input type="text" id="new-todo" placeholder="add an item… (enter)">
+    <button id="add">add</button>
+  </div>
+  <div class="todo-list" id="list"></div>
+</main>
+
+<footer>
+  <span id="conn-status">connecting…</span>
+  <span id="rtc-peers">0 webrtc peers</span>
+  <span id="finality"></span>
+  <span class="spacer"></span>
+  <span id="tdb-badge" class="badge"></span>
+</footer>
+
+<script type="module">
+import { RoomClient, currentHost, currentRoom, currentBranch, randomId, shortKey } from './js/client.js';
+import { mountHeader, esc } from './js/ui.js';
+
+const client = new RoomClient(currentHost(), currentRoom());
+mountHeader(client, 'todo');
+
+function render(state) {
+  if (!state) return;
+  const branch = state.branches[currentBranch()];
+  if (!branch) return;
+  const list = document.querySelector('#list');
+  list.innerHTML = '';
+  const items = Object.values(branch.todos).sort((a, b) => a.created_at_op - b.created_at_op);
+  for (const item of items) {
+    const div = document.createElement('div');
+    div.className = 'todo-item' + (item.done ? ' done' : '') + (item.pending ? ' pending' : '');
+    const author = item.pending ? 'you' : (state.nicks[item.author] || shortKey(item.author));
+    div.innerHTML = `
+      <input type="checkbox" ${item.done ? 'checked' : ''}>
+      <span class="title">${esc(item.title)}</span>
+      <span class="author">${esc(author)}</span>
+      <button class="danger" title="remove">✕</button>`;
+    div.querySelector('input').onchange = (e) =>
+      client.sendOp(currentBranch(), { kind: 'todo.set_done', id: item.id, done: e.target.checked });
+    div.querySelector('.title').ondblclick = () => {
+      const title = prompt('Rename item:', item.title);
+      if (title) client.sendOp(currentBranch(), { kind: 'todo.retitle', id: item.id, title });
+    };
+    div.querySelector('button').onclick = () =>
+      client.sendOp(currentBranch(), { kind: 'todo.remove', id: item.id });
+    list.appendChild(div);
+  }
+}
+
+client.addEventListener('state', (e) => render(e.detail));
+
+function add() {
+  const el = document.querySelector('#new-todo');
+  const title = el.value.trim();
+  if (!title) return;
+  client.sendOp(currentBranch(), { kind: 'todo.add', id: randomId(), title });
+  el.value = '';
+}
+document.querySelector('#add').onclick = add;
+document.querySelector('#new-todo').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') add();
+});
+
+client.connect();
+</script>
+</body>
+</html>

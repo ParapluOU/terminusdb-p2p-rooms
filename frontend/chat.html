@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chat · p2p rooms</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header>
+  <h1 id="room-label">chat</h1>
+  <span class="spacer"></span>
+  <label class="small">branch <select id="branch-select"></select></label>
+  <label class="small">host <select id="host-select"></select></label>
+</header>
+
+<main>
+  <div class="chat-log" id="log"></div>
+  <div class="chat-input">
+    <input type="text" id="nick" placeholder="nick" style="max-width:9rem">
+    <input type="text" id="text" placeholder="message… (enter to send)">
+    <button id="send">send</button>
+  </div>
+</main>
+
+<footer>
+  <span id="conn-status">connecting…</span>
+  <span id="rtc-peers">0 webrtc peers</span>
+  <span id="finality"></span>
+  <span class="spacer"></span>
+  <span id="tdb-badge" class="badge"></span>
+</footer>
+
+<script type="module">
+import { RoomClient, currentHost, currentRoom, currentBranch, shortKey } from './js/client.js';
+import { mountHeader, esc } from './js/ui.js';
+
+const client = new RoomClient(currentHost(), currentRoom());
+mountHeader(client, 'chat');
+
+let nickSent = null;
+
+function render(state) {
+  if (!state) return;
+  const branch = state.branches[currentBranch()];
+  if (!branch) return;
+  const log = document.querySelector('#log');
+  log.innerHTML = '';
+  for (const msg of branch.chat) {
+    let who = msg.nick || state.nicks[msg.author] || shortKey(msg.author) || 'anon';
+    if (msg.pending) who += ' (pending)';
+    const div = document.createElement('div');
+    div.className = 'chat-msg' + (msg.pending ? ' pending' : '');
+    div.innerHTML = `<div class="who">${esc(who)}</div>${esc(msg.text)}`;
+    log.appendChild(div);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+client.addEventListener('state', (e) => render(e.detail));
+
+function send() {
+  const textEl = document.querySelector('#text');
+  const text = textEl.value.trim();
+  if (!text) return;
+  const nick = document.querySelector('#nick').value.trim();
+  if (nick && nick !== nickSent) {
+    client.sendOp(currentBranch(), { kind: 'chat.set_nick', nick });
+    nickSent = nick;
+  }
+  const op = { kind: 'chat.post', text };
+  if (nick) op.nick = nick;
+  client.sendOp(currentBranch(), op);
+  textEl.value = '';
+}
+
+document.querySelector('#send').onclick = send;
+document.querySelector('#text').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') send();
+});
+
+client.connect();
+</script>
+</body>
+</html>

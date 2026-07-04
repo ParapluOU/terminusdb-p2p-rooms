@@ -1,0 +1,20 @@
+[package]
+name = "room-protocol"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "L2 payload protocol for branchable rooms: op vocabulary, branch pointer, deterministic fold"
+
+# This crate is the L2 layer on top of roomnet's L1 log: it defines what the
+# opaque `Entry.payload` bytes mean. It stays sans-IO and wasm-clean like
+# roomnet's default build — no tokio, no network, no TerminusDB.
+[dependencies]
+roomnet.workspace = true
+autobase.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+identity = { workspace = true }

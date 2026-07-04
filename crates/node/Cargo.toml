@@ -1,0 +1,49 @@
+[package]
+name = "tdb-room-node"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "TerminusDB p2p rooms node: hosts autobase rooms over iroh, materialises them into TerminusDB, gossips presence, and signals WebRTC clients"
+
+[[bin]]
+name = "tdb-room-node"
+path = "src/main.rs"
+
+[features]
+default = []
+# Embed TerminusDB itself (compiles it from source at build time — needs
+# swipl, make, protoc and GMP on the build host). Without this feature the
+# node talks to an external TerminusDB over HTTP (--tdb-url).
+embedded-tdb = ["dep:terminusdb-bin"]
+
+[dependencies]
+room-protocol = { path = "../room-protocol" }
+roomnet = { workspace = true, features = ["iroh"] }
+autobase.workspace = true
+identity.workspace = true
+
+terminusdb-client.workspace = true
+terminusdb-schema = { git = "https://github.com/ParapluOU/terminusdb-rs", rev = "4fefb0434f65baa847af5af9fc00175b3e4d827b" }
+terminusdb-schema-derive = { git = "https://github.com/ParapluOU/terminusdb-rs", rev = "4fefb0434f65baa847af5af9fc00175b3e4d827b" }
+terminusdb-bin = { workspace = true, optional = true }
+
+iroh.workspace = true
+iroh-gossip.workspace = true
+n0-future = "0.3"
+
+tokio.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+futures-util.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+hex.workspace = true
+blake3.workspace = true
+rand.workspace = true
+url = "2"
