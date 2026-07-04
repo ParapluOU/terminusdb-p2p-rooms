@@ -1,0 +1,21 @@
+[package]
+name = "room-client-wasm"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Browser-side room client: a real roomnet Room (hypercore writer + autobase linearizer + fold) compiled to wasm, so no hypercore logic leaks into JavaScript"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Uses roomnet's default (sans-IO, wasm-clean) build: no tokio, no iroh.
+# JavaScript's only job is shipping the opaque wire frames this crate emits —
+# over the node websocket (binary) and WebRTC data channels.
+[dependencies]
+room-protocol = { path = "../room-protocol" }
+roomnet.workspace = true
+identity.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+wasm-bindgen = "0.2"

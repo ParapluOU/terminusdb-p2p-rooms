@@ -32,6 +32,18 @@ async function main() {
   await p1.waitForSelector('#text');
   await p2.waitForSelector('#text');
 
+  // If frontend/wasm is built, both tabs must be running their own replica.
+  const status = await p1.textContent('#conn-status').catch(() => '');
+  let wasmMode = false;
+  try {
+    await p1.waitForFunction(
+      () => document.querySelector('#conn-status').textContent.includes('connected'),
+      null, { timeout: 10000 }
+    );
+    wasmMode = (await p1.textContent('#conn-status')).includes('wasm replica');
+  } catch {}
+  console.log('client mode:', wasmMode ? 'wasm replica (browser-side hypercore)' : 'fallback (node-anchored)');
+
   // tab1 posts with a nick
   await p1.fill('#nick', 'alice');
   await p1.fill('#text', 'hello from tab1');
@@ -102,6 +114,16 @@ async function main() {
     null, { timeout: 10000 }
   );
   console.log('tab2 switched to dev: sees carried history + dev-only post');
+
+  // raw hypercore log endpoint: in wasm mode there must be >1 writer
+  const log = await (await fetch(`${HOST}/api/rooms/${room}/log`)).json();
+  const writers = log.writers.map((w) => `${w.writer.slice(0, 8)}…(${w.len})`);
+  console.log('log endpoint writers:', writers.join(', '));
+  if (wasmMode && log.writers.length < 2) throw new Error('expected multiple writers in wasm mode');
+  const total = log.writers.reduce((n, w) => n + w.entries.length, 0);
+  if (total < 4) throw new Error('log endpoint returned too few entries: ' + total);
+  if (!log.writers.some((w) => w.entries.some((e) => e.envelope?.op?.kind === 'chat.post')))
+    throw new Error('log endpoint entries missing decoded envelopes');
 
   // index page lists the room with both branches
   const p3 = await ctx.newPage();

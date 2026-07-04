@@ -34,7 +34,7 @@
 import { RoomClient, currentHost, currentRoom, currentBranch, randomId, shortKey } from './js/client.js';
 import { mountHeader, esc } from './js/ui.js';
 
-const client = new RoomClient(currentHost(), currentRoom());
+const client = await RoomClient.create(currentHost(), currentRoom());
 mountHeader(client, 'todo');
 
 function render(state) {

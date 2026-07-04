@@ -1,3 +1,5 @@
 /target
 **/*.rs.bk
 /.data
+# built by scripts/build-wasm.sh
+/frontend/wasm/

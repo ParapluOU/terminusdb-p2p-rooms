@@ -3953,6 +3953,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "room-client-wasm"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "identity",
+ "room-protocol",
+ "roomnet",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "room-protocol"
 version = "0.1.0"
 dependencies = [

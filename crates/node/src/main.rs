@@ -94,6 +94,12 @@ struct Args {
     #[arg(long)]
     no_tdb: bool,
 
+    /// Which projection to materialise into TerminusDB. "finalized" waits
+    /// for indexer quorum; "live" writes the optimistic view (recommended
+    /// while browser wasm writers can't reach quorum — see README).
+    #[arg(long, default_value = "finalized", value_parser = ["finalized", "live"])]
+    materialise: String,
+
     /// Start an embedded TerminusDB server instead of connecting to
     /// --tdb-url. Requires building with `--features embedded-tdb`.
     #[arg(long)]
@@ -171,12 +177,19 @@ async fn main() -> Result<()> {
         }
     }
     let server = RoomServer::open(
-        ServerConfig { identity_seed: seed, indexers, replica_stale_after: None },
+        ServerConfig { identity_seed: seed, indexers: indexers.clone(), replica_stale_after: None },
         RoomProjection::default(),
     );
 
     let (mat_tx, mat_rx) = mpsc::channel(256);
-    let (engine, handle) = Engine::new(server, transport, mat_tx, args.replicate);
+    let (engine, handle) = Engine::new(
+        server,
+        transport,
+        mat_tx,
+        args.replicate,
+        args.materialise == "live",
+        indexers,
+    );
     tokio::spawn(engine.run());
 
     // --- TerminusDB materialiser ---------------------------------------------

@@ -72,6 +72,13 @@ set has confirmed them. A malicious writer can only append garbage under its
 own key; the L2 fold deterministically skips invalid ops on every replica, so
 it cannot wedge replication or fork the state.
 
+With the wasm client this extends into the browser: every user edit is signed
+by the user's own writer key and travels as self-verifying blocks — nodes are
+replicas, relays and materialisers, never authorities over content. (In
+fallback mode, without the wasm build, clients do trust their chosen node to
+anchor ops faithfully.) Anyone can audit any node by fetching a room's raw
+hypercores from `/api/rooms/:id/log` and re-running the fold.
+
 ---
 
 ## The branch pointer
@@ -110,6 +117,9 @@ crates/
 │   ├── src/op.rs       #     versioned JSON payload codec (browser-friendly)
 │   ├── src/state.rs    #     branches × {chat, todos, files} fold
 │   └── tests/          #     two-replica convergence via roomnet's sans-IO seam
+├── room-client-wasm/   # the browser replica: a real roomnet Room (hypercore
+│                       #   writer + autobase + fold) compiled to wasm — no
+│                       #   hypercore logic in JavaScript (scripts/build-wasm.sh)
 └── node/               # the daemon: tdb-room-node
     ├── src/engine.rs   # room engine loop (RoomServer + IrohTransport):
     │                   #   commands, live-state events, auto-replication,
@@ -149,6 +159,21 @@ internet access (iroh's default n0 discovery + relay infrastructure).
 cargo run -p tdb-room-node -- --name solo --no-tdb
 # open http://127.0.0.1:8080
 ```
+
+### Browser-side hypercores (recommended)
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.126
+./scripts/build-wasm.sh        # emits frontend/wasm/
+```
+
+With `frontend/wasm/` present, every browser tab runs its **own roomnet
+replica** (writer identity, hypercore, linearizer, fold — all Rust/wasm) and
+the footer shows “connected (wasm replica)”. Without it, the frontends fall
+back to node-anchored ops. Since browser writers can't reach quorum finality
+yet (see limitations), run nodes with `--materialise live` to land their
+entries in TerminusDB.
 
 ### One node + TerminusDB materialisation
 
@@ -225,41 +250,54 @@ node scripts/e2e-browser.js   # 2 tabs: chat, webrtc mesh, branch fork/switch
 | `POST /api/rooms/:id/join` `{origin?}` | replicate an existing room |
 | `GET /api/rooms/:id` | full snapshot (live + finalized state) |
 | `GET /api/rooms/:id/state?branch=&view=live\|finalized` | one branch's folded state |
+| `GET /api/rooms/:id/log` | the room's complete autobase hypercores: every writer's log with causal heads + raw payloads |
 | `POST /api/rooms/:id/ops` `{branch, op}` | append an op (see L2 vocabulary) |
 | `GET /api/rooms/:id/tdb` | materialisation status + live TerminusDB doc counts |
 | `GET /api/rooms/:id/ws` | websocket: state push + WebRTC signalling |
 
-Websocket frames (JSON, `t`-tagged): server → `welcome`, `peer-joined`,
-`peer-left`, `state`, `signal`; client → `append` (op), `signal` (SDP/ICE
-relay to another client of the same room).
+Websocket frames: JSON text frames (`t`-tagged) — server → `welcome`,
+`peer-joined`, `peer-left`, `state`, `signal`; client → `append` (fallback-mode
+op), `signal` (SDP/ICE relay), `writer` (bind a wasm writer key). **Binary
+frames** are raw roomnet wire `SyncMessage`s — the same protocol iroh peers
+speak — for browser-side hypercore writers.
 
-### Client p2p (WebRTC)
+### Client p2p (WebRTC + wasm hypercores)
 
 Browser clients of a room discover each other via `welcome`/`peer-joined`,
 negotiate RTCPeerConnections through the node's `signal` relay, and open an
-`ops` data channel mesh. Every edit is (1) applied locally as an optimistic
-overlay, (2) broadcast to WebRTC peers, who overlay it too, and (3) appended
-via the node, which anchors it into the signed hypercore log. The
-authoritative folded state then comes back down the websocket and replaces
-the overlays. So clients see each other's edits at data-channel latency even
-while the log round-trip is in flight.
+`ops` data channel mesh. In wasm mode each tab is a **real hypercore writer**:
+an edit is signed into the tab's own log, the resulting sync frames go to
+WebRTC peers (true browser↔browser hypercore replication: Head → Want → Block
+with Merkle proofs) and to the node's websocket, where the node ingests the
+self-verifying blocks, folds them, materialises them, and push-relays them to
+its iroh peers. JavaScript never parses a frame — it routes opaque bytes by
+the `to` tag the wasm module attaches. In fallback mode (no wasm build) ops
+are JSON, overlays are optimistic, and the node anchors everything under its
+own writer key.
 
 ---
 
 ## Design notes & current limitations
 
-- **Browser clients are not yet hypercore writers.** Ops from all clients of a
-  node are signed by that node's writer key; per-client attribution rides in
-  the ops themselves (e.g. chat nicks). hypercore-rs is deliberately
-  wasm-clean, so the natural next step is compiling the L1 core to wasm and
-  having browsers keep real writer logs, with WebRTC as a roomnet transport
-  and nodes as (optional) always-on replicas + TerminusDB materialisers.
-- **Causal heads**: at the pinned hypercore-rs revision, `Room::local_append`
-  records `Linearizer::tails()` — the DAG *roots*, not the frontier — as an
-  entry's causal references. Replicas still converge deterministically, but
-  cross-writer ordering degenerates to the writer-key tiebreak ("I replied
-  after seeing your message" is not reflected in the final order). A
-  frontier-based fix belongs upstream in hypercore-rs.
+- **Causal heads (upstream)**: at the pinned hypercore-rs revision,
+  `Room::local_append` records `Linearizer::tails()` — the DAG *roots*, not
+  the frontier — as an entry's causal references. Replicas still converge
+  deterministically, but cross-writer ordering degenerates to the writer-key
+  tiebreak ("I replied after seeing your message" is not reflected in the
+  final order), and — more importantly — indexer entries never causally *see*
+  other writers' entries, so **non-indexer writers (e.g. browser wasm
+  clients) rarely reach quorum finality**. Until a frontier-based fix lands
+  upstream in hypercore-rs, run nodes with `--materialise live` when using
+  wasm writers.
+- **Block relay (upstream)**: roomnet nodes serve only their *local* writer's
+  blocks on pull (`Want`); this demo compensates by push-relaying
+  self-verifying client blocks to iroh peers, but late joiners can't backfill
+  another writer's history from a third-party node. Serving replicated
+  writers' blocks (with stored proofs) is the upstream follow-on roomnet's
+  own comments call out.
+- **Client identity is ephemeral** in the demo: each tab derives a fresh
+  writer key. Persisting the seed + log (roomnet's storage layer has an
+  OPFS/IndexedDB backend) would give durable browser identities.
 - **Finality across nodes**: each node's room uses its configured indexer set;
   deployments should share one `--indexers` list so all replicas finalize the
   same prefix. Rooms with a single indexer finalize immediately (the demo

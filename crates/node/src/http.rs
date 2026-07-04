@@ -107,6 +107,7 @@ pub fn router(state: AppState, frontend_dir: &str) -> Router {
         .route("/api/rooms/{id}", get(room_snapshot))
         .route("/api/rooms/{id}/join", post(join_room))
         .route("/api/rooms/{id}/state", get(room_state))
+        .route("/api/rooms/{id}/log", get(room_log))
         .route("/api/rooms/{id}/ops", post(append_op))
         .route("/api/rooms/{id}/tdb", get(room_tdb))
         .route("/api/rooms/{id}/ws", any(ws_handler))
@@ -121,11 +122,25 @@ async fn info(State(s): State<AppState>) -> Json<Value> {
         "roomnet_id": s.meta.roomnet_id,
         "gossip_id": s.meta.gossip_id,
         "http_url": s.meta.http_url,
+        // Browser-side writers (the wasm client) open their Room with the
+        // same indexer set so their finality matches the node's.
+        "indexers": s.engine.indexers.iter().map(hex::encode).collect::<Vec<_>>(),
         "tdb": {
             "endpoint": *s.mat.endpoint.read().await,
             "connected": *s.mat.connected.read().await,
         },
     }))
+}
+
+/// The room's complete autobase hypercores: every writer's log, with causal
+/// heads and the raw payload bytes exactly as stored in the ledger.
+async fn room_log(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let room = parse_key(&id).map_err(ApiError::bad_request)?;
+    let logs = s.engine.logs(room).await.ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({ "id": id, "writers": logs })))
 }
 
 /// The host directory: this node plus every node heard on the presence topic.
@@ -329,6 +344,13 @@ async fn client_session(s: AppState, room_hex: String, room: [u8; 32], socket: W
     let (client_id, peers) = s.hub.join(&room_hex, tx.clone()).await;
     debug!(room = %room_hex, client_id, "ws client joined");
 
+    // Binary lane: raw roomnet wire frames for browser-side hypercore writers
+    // (the wasm client). `bound_writer` is set once the client identifies its
+    // writer key, so Fanout::Peer replies can find this socket.
+    let (sync_tx, mut sync_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+    let bus_id = s.engine.bus.join(room, sync_tx.clone());
+    let mut bound_writer: Option<[u8; 32]> = None;
+
     let _ = tx.send(text(&json!({"t": "welcome", "you": client_id, "peers": peers})));
     if let Some(snap) = s.engine.snapshot(room).await {
         let _ = tx.send(text(&json!({
@@ -361,6 +383,15 @@ async fn client_session(s: AppState, room_hex: String, room: [u8; 32], socket: W
                     }
                 }
             }
+            // Outbound: sync frames for browser-side writers.
+            maybe = sync_rx.recv() => match maybe {
+                Some(bytes) => {
+                    if ws_tx.send(Message::Binary(bytes.into())).await.is_err() {
+                        break;
+                    }
+                }
+                None => break,
+            },
             // Inbound: signalling + ops from the browser.
             frame = ws_rx.next() => match frame {
                 Some(Ok(Message::Text(raw))) => {
@@ -369,6 +400,14 @@ async fn client_session(s: AppState, room_hex: String, room: [u8; 32], socket: W
                         Some("signal") => {
                             if let Some(to) = v["to"].as_u64() {
                                 s.hub.relay(&room_hex, client_id, to, v["data"].clone()).await;
+                            }
+                        }
+                        // A wasm writer announcing its writer key: binds this
+                        // socket for Fanout::Peer replies (Want -> Block).
+                        Some("writer") => {
+                            if let Some(key) = v["key"].as_str().and_then(|k| parse_key(k).ok()) {
+                                s.engine.bus.bind_writer(key, sync_tx.clone());
+                                bound_writer = Some(key);
                             }
                         }
                         Some("append") => {
@@ -387,6 +426,12 @@ async fn client_session(s: AppState, room_hex: String, room: [u8; 32], socket: W
                         _ => {}
                     }
                 }
+                // Binary frames: roomnet wire SyncMessages from a wasm writer.
+                Some(Ok(Message::Binary(bytes))) => {
+                    if let (Some(writer), Ok(msg)) = (bound_writer, roomnet::wire::decode(&bytes)) {
+                        s.engine.client_sync(room, writer, msg).await;
+                    }
+                }
                 Some(Ok(Message::Close(_))) | None => break,
                 Some(Ok(_)) => {}
                 Some(Err(_)) => break,
@@ -394,6 +439,7 @@ async fn client_session(s: AppState, room_hex: String, room: [u8; 32], socket: W
         }
     }
 
+    s.engine.bus.leave(room, bus_id, bound_writer);
     s.hub.leave(&room_hex, client_id).await;
     debug!(room = %room_hex, client_id, "ws client left");
 }
