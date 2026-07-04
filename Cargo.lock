@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "autobase"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 
 [[package]]
 name = "autocfg"
@@ -516,7 +516,7 @@ dependencies = [
 [[package]]
 name = "codec"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 
 [[package]]
 name = "colorchoice"
@@ -880,7 +880,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccc2776f0c61eca1ca32528f85548abd1a4be8fb53d1b21c013e4f18da1e7090"
 dependencies = [
  "data-encoding",
- "syn 2.0.118",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1232,7 +1232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1941,7 +1941,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.4",
+ "socket2 0.5.10",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -1952,7 +1952,7 @@ dependencies = [
 [[package]]
 name = "hypercore"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 dependencies = [
  "codec",
  "identity",
@@ -2075,7 +2075,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "identity"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 dependencies = [
  "blake3",
  "ed25519-dalek 2.2.0",
@@ -2406,7 +2406,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2648,7 +2648,7 @@ checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 [[package]]
 name = "merkle"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 dependencies = [
  "blake3",
 ]
@@ -2944,7 +2944,7 @@ dependencies = [
  "pin-project-lite",
  "rustc-hash",
  "rustls",
- "socket2 0.6.4",
+ "socket2 0.5.10",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
@@ -2987,7 +2987,7 @@ checksum = "3137a52df66c20090a889828d1c655f21f52294cba64e5c4fbb04fc83eee7c8e"
 dependencies = [
  "cfg_aliases",
  "libc",
- "socket2 0.6.4",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.61.2",
 ]
@@ -2998,7 +2998,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3979,7 +3979,7 @@ dependencies = [
 [[package]]
 name = "roomnet"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 dependencies = [
  "autobase",
  "codec",
@@ -4058,7 +4058,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4116,7 +4116,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4208,7 +4208,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4548,7 +4548,7 @@ dependencies = [
 [[package]]
 name = "storage"
 version = "0.0.0"
-source = "git+https://github.com/ParapluOU/hypercore-rs?rev=9ad7014b3c23ce191c871213ba67c6b0f4ee84da#9ad7014b3c23ce191c871213ba67c6b0f4ee84da"
+source = "git+https://github.com/ParapluOU/hypercore-rs?rev=96f94f906af974815efa5b520724148f07a7c5b6#96f94f906af974815efa5b520724148f07a7c5b6"
 
 [[package]]
 name = "strsim"
@@ -4706,10 +4706,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5669,7 +5669,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

@@ -171,9 +171,10 @@ cargo install wasm-bindgen-cli --version 0.2.126
 With `frontend/wasm/` present, every browser tab runs its **own roomnet
 replica** (writer identity, hypercore, linearizer, fold — all Rust/wasm) and
 the footer shows “connected (wasm replica)”. Without it, the frontends fall
-back to node-anchored ops. Since browser writers can't reach quorum finality
-yet (see limitations), run nodes with `--materialise live` to land their
-entries in TerminusDB.
+back to node-anchored ops. When a node ingests a browser writer's blocks it
+appends a `meta.checkpoint` anchor; the anchor causally references those
+entries, which is what carries them to quorum finality — and from there into
+TerminusDB.
 
 ### One node + TerminusDB materialisation
 
@@ -279,22 +280,23 @@ own writer key.
 
 ## Design notes & current limitations
 
-- **Causal heads (upstream)**: at the pinned hypercore-rs revision,
-  `Room::local_append` records `Linearizer::tails()` — the DAG *roots*, not
-  the frontier — as an entry's causal references. Replicas still converge
-  deterministically, but cross-writer ordering degenerates to the writer-key
-  tiebreak ("I replied after seeing your message" is not reflected in the
-  final order), and — more importantly — indexer entries never causally *see*
-  other writers' entries, so **non-indexer writers (e.g. browser wasm
-  clients) rarely reach quorum finality**. Until a frontier-based fix lands
-  upstream in hypercore-rs, run nodes with `--materialise live` when using
-  wasm writers.
-- **Block relay (upstream)**: roomnet nodes serve only their *local* writer's
-  blocks on pull (`Want`); this demo compensates by push-relaying
-  self-verifying client blocks to iroh peers, but late joiners can't backfill
-  another writer's history from a third-party node. Serving replicated
-  writers' blocks (with stored proofs) is the upstream follow-on roomnet's
-  own comments call out.
+- **Causal heads (fixed upstream)**: earlier hypercore-rs revisions linked
+  appends against `Linearizer::tails()` (the DAG roots) instead of the
+  frontier — cross-checked against holepunchto/autobase, where new nodes link
+  `linearizer.getHeads()` and `tails` is a consensus-traversal concept. Fixed
+  at the pinned revision (`Linearizer::heads()` + frontier linking in
+  `Room::local_append`): cross-writer causality holds in the linear order,
+  and indexer appends confirm other writers' entries. This is also what makes
+  the node's `meta.checkpoint` anchor finalize browser writers' ops.
+  `--materialise live` remains as an escape hatch for multi-indexer
+  deployments where finality intentionally lags quorum exchange.
+- **Full-history serving (fixed upstream)**: rooms keep every replicated
+  block's verified `(head, bytes, proof)` triple and serve any hosted
+  writer's log on `Want`, and `announce()` advertises a `Have` per replicated
+  writer — a late joiner backfills the whole room from any single peer.
+  Remaining gap: the triples are in-memory, so a node restarted from disk can
+  read but not re-serve replicated writers until proof regeneration from the
+  persisted Merkle state lands upstream.
 - **Client identity is ephemeral** in the demo: each tab derives a fresh
   writer key. Persisting the seed + log (roomnet's storage layer has an
   OPFS/IndexedDB backend) would give durable browser identities.

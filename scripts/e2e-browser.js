@@ -115,6 +115,23 @@ async function main() {
   );
   console.log('tab2 switched to dev: sees carried history + dev-only post');
 
+  // Finality: the node anchors browser writers' entries with a checkpoint,
+  // so both chat messages must reach the FINALIZED projection (which is what
+  // materialises into TerminusDB).
+  if (wasmMode) {
+    const deadline = Date.now() + 15000;
+    for (;;) {
+      const snap = await (await fetch(`${HOST}/api/rooms/${room}`)).json();
+      const finChat = (snap.finalized.branches.main || {}).chat || [];
+      if (finChat.some((m) => m.text === 'hello from tab1') && finChat.some((m) => m.text === 'reply from tab2')) {
+        console.log(`browser-authored entries FINALIZED (finalized_len=${snap.finalized_len})`);
+        break;
+      }
+      if (Date.now() > deadline) throw new Error('browser entries never finalized: ' + JSON.stringify(finChat));
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+
   // raw hypercore log endpoint: in wasm mode there must be >1 writer
   const log = await (await fetch(`${HOST}/api/rooms/${room}/log`)).json();
   const writers = log.writers.map((w) => `${w.writer.slice(0, 8)}…(${w.len})`);

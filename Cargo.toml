@@ -21,10 +21,10 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # L1 substrate: rooms, causal log, identity (ParapluOU/hypercore-rs)
-roomnet = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
-autobase = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
-identity = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
-codec = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "9ad7014b3c23ce191c871213ba67c6b0f4ee84da" }
+roomnet = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "96f94f906af974815efa5b520724148f07a7c5b6" }
+autobase = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "96f94f906af974815efa5b520724148f07a7c5b6" }
+identity = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "96f94f906af974815efa5b520724148f07a7c5b6" }
+codec = { git = "https://github.com/ParapluOU/hypercore-rs", rev = "96f94f906af974815efa5b520724148f07a7c5b6" }
 
 # TerminusDB (ParapluOU/terminusdb-rs)
 terminusdb-client = { git = "https://github.com/ParapluOU/terminusdb-rs", rev = "4fefb0434f65baa847af5af9fc00175b3e4d827b" }

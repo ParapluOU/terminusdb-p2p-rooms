@@ -233,9 +233,13 @@ pub struct Engine {
     /// Replicate any room we see frames or announcements for.
     auto_replicate: bool,
     /// Materialise the live projection instead of the finalized one. Useful
-    /// while browser writers can't reach quorum finality (see README).
+    /// in multi-indexer deployments where finality lags (see README).
     mat_live: bool,
     last_activity: HashMap<RoomId, u64>,
+    /// Rooms that ingested a browser writer's block since the last anchor.
+    /// The next tick appends a `meta.checkpoint` so this node's (indexer)
+    /// entry causally references — and thereby finalizes — those entries.
+    needs_anchor: std::collections::HashSet<RoomId>,
 }
 
 impl Engine {
@@ -261,6 +265,7 @@ impl Engine {
             auto_replicate,
             mat_live,
             last_activity: HashMap::new(),
+            needs_anchor: std::collections::HashSet::new(),
         };
         (engine, EngineHandle { tx: cmd_tx, events, bus, node_key, indexers: Arc::new(indexers) })
     }
@@ -352,7 +357,11 @@ impl Engine {
                 let _ = reply.send(ok);
             }
             EngineCmd::ClientSync { room, from, msg } => {
+                let is_block = matches!(msg, SyncMessage::Block { .. });
                 self.ingest(room, from, msg);
+                if is_block {
+                    self.needs_anchor.insert(room);
+                }
             }
             EngineCmd::Snapshot { room, reply } => {
                 let snap = self.server.get(room).map(|r| Snapshot {
@@ -456,6 +465,25 @@ impl Engine {
         for Inbound { room, from, msg } in self.transport.drain_inbound() {
             self.transport.add_peer(from);
             self.ingest(room, from, msg);
+        }
+
+        // Anchor browser writers' entries: our own append links the DAG
+        // frontier, so it causally sees their blocks and votes them toward
+        // quorum finality.
+        for room in std::mem::take(&mut self.needs_anchor) {
+            if let Some(r) = self.server.get_mut(room) {
+                let anchor = room_protocol::encode_envelope(&room_protocol::OpEnvelope::main(
+                    room_protocol::RoomOp::Checkpoint,
+                ));
+                match r.local_append(&anchor) {
+                    Ok(outs) => {
+                        for o in outs {
+                            self.route(room, o);
+                        }
+                    }
+                    Err(e) => warn!(room = %hex::encode(room), "anchor append failed: {e:?}"),
+                }
+            }
         }
 
         let ids: Vec<RoomId> = self.server.rooms().map(|(id, _)| *id).collect();

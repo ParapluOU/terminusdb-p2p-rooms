@@ -98,6 +98,7 @@ impl RoomState {
         match env.op {
             RoomOp::SetTitle { title } => self.title = Some(title),
             RoomOp::SetApp { app } => self.app = Some(app),
+            RoomOp::Checkpoint => {}
             RoomOp::ChatSetNick { nick } => {
                 self.nicks.insert(author, nick);
             }
@@ -197,6 +198,7 @@ impl BranchState {
             // Room-level ops are handled by RoomState::apply_payload.
             RoomOp::SetTitle { .. }
             | RoomOp::SetApp { .. }
+            | RoomOp::Checkpoint
             | RoomOp::ChatSetNick { .. }
             | RoomOp::BranchCreate { .. } => {}
         }

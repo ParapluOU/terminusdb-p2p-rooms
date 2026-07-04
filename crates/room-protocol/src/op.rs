@@ -57,6 +57,12 @@ pub enum RoomOp {
     /// ("chat" | "todo" | "fs").
     #[serde(rename = "meta.set_app")]
     SetApp { app: String },
+    /// A no-op anchor. An indexer node appends one after ingesting entries
+    /// from non-indexer writers (e.g. browser wasm clients): the anchor
+    /// causally references those entries, which is what lets them reach
+    /// quorum finality. Folds to nothing.
+    #[serde(rename = "meta.checkpoint")]
+    Checkpoint,
 
     // -- branching ----------------------------------------------------------
     /// Fork a new branch named `name` from the envelope's `branch` pointer,
